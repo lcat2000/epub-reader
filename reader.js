@@ -865,8 +865,11 @@ function initPageTurn() {
     }
     var rect = EL.iframe.getBoundingClientRect();
     var relX = e.clientX - rect.left;
-    // Right half = forward, left half = backward
-    pageTurn(relX > rect.width * 0.5 ? 1 : -1);
+    // Vertical RTL: right = backward (prev page), left = forward (next page)
+    // Horizontal:   right = forward  (next page), left = backward (prev page)
+    var isRight = relX > rect.width * 0.5;
+    if (S.layout === 'vertical') pageTurn(isRight ? -1 : 1);
+    else                         pageTurn(isRight ?  1 : -1);
   });
 }
 
