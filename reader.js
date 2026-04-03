@@ -451,12 +451,27 @@ function renderToShadow(chapterData) {
 
   var chapStyle = document.createElement('style');
   chapStyle.id = '_ch_style';
-  chapStyle.textContent = chapterData.cssParts.join('\n');
+  // Strip javascript: expressions from CSS (e.g. expression(...) or javascript: in url())
+  var rawCss = chapterData.cssParts.join('\n');
+  var safeCss = rawCss
+    .replace(/javascript\s*:/gi, '')
+    .replace(/-moz-binding\s*:/gi, '')
+    .replace(/expression\s*\(/gi, '');
+  chapStyle.textContent = safeCss;
 
   var bd = document.createElement('div');
   bd.id = 'bd';
   applyLayoutToBd(bd, S.layout);
-  bd.innerHTML = chapterData.bodyHtml;
+  var safeHtml = (typeof DOMPurify !== 'undefined')
+    ? DOMPurify.sanitize(chapterData.bodyHtml, {
+        FORBID_TAGS: ['script', 'object', 'embed', 'applet', 'iframe', 'frame'],
+        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus',
+                      'onblur', 'onchange', 'onsubmit', 'onkeydown', 'onkeyup',
+                      'onkeypress', 'onmousedown', 'onmouseup', 'oncontextmenu'],
+        ALLOW_DATA_ATTR: false
+      })
+    : chapterData.bodyHtml;
+  bd.innerHTML = safeHtml;
   console.log('[render] layout:', S.layout, 'bd.style.writingMode:', bd.style.writingMode);
 
   // Clear and rebuild
