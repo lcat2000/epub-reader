@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ePUB 閱讀器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="reader.css">
+</head>
+<body class="theme-day" data-layout="horizontal">
+
+<!-- ══ Drop Zone ══════════════════════════════════════════════════════════ -->
+<div id="drop-zone" role="button" tabindex="0" aria-label="拖放 ePUB 檔案至此開啟">
+  <div id="drop-inner">
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true">
+      <rect x="8" y="12" width="40" height="52" rx="4" fill="#c8e6c9" stroke="#4a7c40" stroke-width="2"/>
+      <rect x="14" y="20" width="28" height="3" rx="1.5" fill="#4a7c40" opacity=".5"/>
+      <rect x="14" y="28" width="28" height="3" rx="1.5" fill="#4a7c40" opacity=".5"/>
+      <rect x="14" y="36" width="20" height="3" rx="1.5" fill="#4a7c40" opacity=".5"/>
+      <circle cx="52" cy="52" r="16" fill="#2d5a27"/>
+      <path d="M52 44v16M44 52l8 8 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <p class="drop-title">ePUB 閱讀器</p>
+    <p class="drop-sub">拖放 .epub 檔案至此，或</p>
+    <button id="btn-open" type="button">選擇檔案</button>
+    <p class="drop-hint">支援 ePUB 2 / ePUB 3 · 中文直排/橫排</p>
+    <input type="file" id="file-input" accept=".epub" hidden>
+  </div>
+</div>
+
+<!-- ══ Top Toolbar ════════════════════════════════════════════════════════ -->
+<header id="top-bar" hidden>
+  <button id="btn-toc-toggle" class="icon-btn" aria-label="目錄" aria-expanded="false" title="目錄 (T)">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
+      <rect x="2" y="3" width="14" height="2" rx="1"/>
+      <rect x="2" y="8" width="14" height="2" rx="1"/>
+      <rect x="2" y="13" width="10" height="2" rx="1"/>
+    </svg>
+  </button>
+
+  <span id="book-title-display" title=""></span>
+
+  <nav id="chapter-nav" aria-label="章節導覽">
+    <button id="btn-prev" class="nav-btn" aria-label="上一章" title="上一章 (←)" disabled>&#8249;</button>
+    <span id="progress-label" aria-live="polite">— / —</span>
+    <button id="btn-next" class="nav-btn" aria-label="下一章" title="下一章 (→)" disabled>&#8250;</button>
+  </nav>
+
+  <div id="toolbar-controls">
+    <div class="ctrl-group" title="字型大小">
+      <button id="btn-font-dec" class="ctrl-btn" aria-label="縮小字型">A-</button>
+      <span id="font-size-display">18</span>
+      <button id="btn-font-inc" class="ctrl-btn" aria-label="放大字型">A+</button>
+    </div>
+
+    <div class="ctrl-group" title="版面方向">
+      <button id="btn-layout-toggle" class="ctrl-btn" aria-label="切換直排/橫排" title="直排/橫排 (V)">橫→直</button>
+    </div>
+
+    <div class="ctrl-group theme-group" title="主題">
+      <button data-theme="day"   class="theme-btn active" aria-label="白天模式"  title="白天">日</button>
+      <button data-theme="sepia" class="theme-btn"        aria-label="棕色模式"  title="棕色">棕</button>
+      <button data-theme="night" class="theme-btn"        aria-label="夜晚模式"  title="夜晚">夜</button>
+    </div>
+
+    <button id="btn-open-new" class="ctrl-btn open-btn" aria-label="開啟新書" title="開啟新書 (O)">
+      開啟
+    </button>
+    <input type="file" id="file-input-new" accept=".epub" hidden>
+  </div>
+</header>
+
+<!-- ══ TOC Sidebar ════════════════════════════════════════════════════════ -->
+<aside id="toc-sidebar" hidden aria-label="目錄">
+  <div id="toc-header">
+    <span>目錄</span>
+    <button id="btn-toc-close" class="icon-btn" aria-label="關閉目錄">✕</button>
+  </div>
+  <nav id="toc-list" aria-label="書目章節"></nav>
+</aside>
+
+<div id="toc-backdrop" hidden aria-hidden="true"></div>
+
+<!-- ══ Loading Overlay ════════════════════════════════════════════════════ -->
+<div id="loading-overlay" hidden>
+  <div id="loading-inner">
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="loading-msg">載入中…</p>
+  </div>
+</div>
+
+<!-- ══ Error Toast ════════════════════════════════════════════════════════ -->
+<div id="error-toast" hidden role="alert" aria-live="assertive"></div>
+
+<!-- ══ Reader Area ════════════════════════════════════════════════════════ -->
+<main id="reader-area" hidden aria-label="書籍內容">
+  <div id="chapter-display" tabindex="0" aria-live="polite" aria-label="章節內容"></div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="reader.js"></script>
+</body>
+</html>
