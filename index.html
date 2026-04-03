@@ -11,7 +11,11 @@
                img-src 'self' data: blob:;
                connect-src 'none';
                object-src 'none';
-               base-uri 'self'">
+               base-uri 'self';
+               form-action 'none'">
+<!-- Note: frame-ancestors requires HTTP header (not meta tag) to take effect.
+     GitHub Pages does not support custom headers, so clickjacking protection
+     via frame-ancestors cannot be enforced on this hosting platform. -->
 <title>ePUB 閱讀器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

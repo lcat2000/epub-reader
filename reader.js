@@ -206,12 +206,17 @@ async function buildResourceMap(chapterHref) {
     while ((m = re.exec(s)) !== null) toProcess.push({ type:'img', rel: m[1] });
   });
 
+  var imgCount = 0;
   for (var i = 0; i < toProcess.length; i++) {
     var item = toProcess[i];
     if (!item.rel || /^data:/.test(item.rel) || /^[a-z]+:\/\//i.test(item.rel)) continue;
     var abs = normPath(chapterDir + item.rel.split('#')[0]);
-    if (item.type === 'css') await processCssText(abs);
-    else                      await ensureDataUri(abs);
+    if (item.type === 'css') {
+      await processCssText(abs);
+    } else {
+      if (++imgCount > LIMITS.maxImagesPerChapter) continue; // skip excess images
+      await ensureDataUri(abs);
+    }
   }
 }
 
@@ -451,12 +456,20 @@ function renderToShadow(chapterData) {
 
   var chapStyle = document.createElement('style');
   chapStyle.id = '_ch_style';
-  // Strip javascript: expressions from CSS (e.g. expression(...) or javascript: in url())
   var rawCss = chapterData.cssParts.join('\n');
   var safeCss = rawCss
+    // Strip executable CSS
     .replace(/javascript\s*:/gi, '')
     .replace(/-moz-binding\s*:/gi, '')
-    .replace(/expression\s*\(/gi, '');
+    .replace(/expression\s*\(/gi, '')
+    // Strip @import (already inlined; blocks loading external resources)
+    .replace(/@import\b[^;]*;/gi, '')
+    // Strip position:fixed (would overlay reader UI outside shadow host bounds)
+    .replace(/position\s*:\s*fixed\b/gi, 'position:absolute')
+    // Strip very high z-index that could obscure reader chrome
+    .replace(/z-index\s*:\s*([0-9]+)/gi, function(_, n) {
+      return 'z-index:' + Math.min(parseInt(n, 10), 100);
+    });
   chapStyle.textContent = safeCss;
 
   var bd = document.createElement('div');
@@ -480,15 +493,32 @@ function renderToShadow(chapterData) {
   sr.appendChild(chapStyle);
   sr.appendChild(bd);
 
-  // Intercept chapter links
+  // Intercept all link clicks
   sr.addEventListener('click', function(e) {
     var a = e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
     var href = a.getAttribute('href') || '';
+
+    // Internal epub chapter navigation
     if (href.startsWith('epub://chapter/')) {
       e.preventDefault();
       var n = parseInt(href.replace('epub://chapter/', '').split('#')[0]);
       if (!isNaN(n)) loadChapter(n);
+      return;
+    }
+
+    // External HTTP(S) links — warn before leaving
+    if (/^https?:\/\//i.test(href)) {
+      e.preventDefault();
+      if (window.confirm('此連結將開啟外部網站：\n\n' + href + '\n\n是否繼續？')) {
+        window.open(href, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+
+    // Block any other protocol (javascript:, data:, ftp:, etc.)
+    if (/^[a-z][a-z0-9+\-.]*:/i.test(href) && !href.startsWith('epub://')) {
+      e.preventDefault();
     }
   }, { once: false });
 }
@@ -718,18 +748,54 @@ function showError(msg) {
 
 /* ── Load ePUB ──────────────────────────────────────────────── */
 
+/* ── Resource limits (zip bomb / DoS protection) ─────────────── */
+var LIMITS = {
+  fileSizeBytes:       100 * 1024 * 1024,  // 100 MB compressed
+  decompTotalBytes:    300 * 1024 * 1024,  // 300 MB decompressed
+  maxChapters:         1000,
+  maxImagesPerChapter: 200,
+};
+
+async function checkZipSafety(zip) {
+  var totalDecomp = 0;
+  var entries = Object.values(zip.files);
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i];
+    if (entry.dir) continue;
+    // JSZip exposes _data.uncompressedSize without decompressing
+    var uncompSize = (entry._data && entry._data.uncompressedSize) || 0;
+    totalDecomp += uncompSize;
+    if (totalDecomp > LIMITS.decompTotalBytes) {
+      throw new Error('ePUB 解壓後超過 300 MB，可能是 zip bomb，已中止。');
+    }
+  }
+}
+
 async function loadEpub(file) {
   showLoading('正在解析「' + file.name + '」…');
   try {
+    // ── Guard: file size ──
+    if (file.size > LIMITS.fileSizeBytes) {
+      throw new Error('檔案超過 100 MB，無法開啟。');
+    }
+
     // Reset
     S.dataMap = {}; S.cssMap = {};
     S.spine = []; S.toc = []; S.scrollMemory = {};
     S.currentIdx = 0;
 
     S.zip = await JSZip.loadAsync(file);
+
+    // ── Guard: zip bomb detection ──
+    await checkZipSafety(S.zip);
     await parseContainer();
     await parseOpf();
     await parseToc();
+
+    // ── Guard: chapter count ──
+    if (S.spine.length > LIMITS.maxChapters) {
+      throw new Error('章節數超過 ' + LIMITS.maxChapters + '，無法開啟。');
+    }
 
     // Show reader UI
     EL.dropZone.setAttribute('hidden', '');
