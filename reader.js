@@ -478,12 +478,20 @@ function renderToShadow(chapterData) {
   }, { once: false });
 }
 
+function getScrollEl() {
+  if (S.layout === 'vertical') {
+    var sr = EL.iframe.shadowRoot;
+    return sr ? sr.getElementById('bd') : null;
+  }
+  return EL.iframe;
+}
+
 async function loadChapter(idx) {
   if (idx < 0 || idx >= S.spine.length) return;
 
   // Save current scroll
-  var host = EL.iframe;
-  S.scrollMemory[S.currentIdx] = S.layout === 'vertical' ? host.scrollLeft : host.scrollTop;
+  var sc = getScrollEl();
+  if (sc) S.scrollMemory[S.currentIdx] = S.layout === 'vertical' ? sc.scrollLeft : sc.scrollTop;
 
   S.currentIdx = idx;
 
@@ -495,10 +503,13 @@ async function loadChapter(idx) {
   var chapterData = buildChapterShadow(rawHtml, S.spine[idx].href);
   renderToShadow(chapterData);
 
-  // Restore scroll
+  // Restore scroll (getScrollEl again since shadow DOM was rebuilt)
   var saved = S.scrollMemory[idx] || 0;
-  if (S.layout === 'vertical') host.scrollLeft = saved;
-  else                         host.scrollTop  = saved;
+  var sc2 = getScrollEl();
+  if (sc2) {
+    if (S.layout === 'vertical') sc2.scrollLeft = saved;
+    else                         sc2.scrollTop  = saved;
+  }
 
   updateProgressUI();
 }
@@ -639,8 +650,8 @@ function toggleLayout() {
 }
 
 function reloadCurrentChapter() {
-  var host = EL.iframe;
-  S.scrollMemory[S.currentIdx] = S.layout === 'vertical' ? host.scrollLeft : host.scrollTop;
+  var sc = getScrollEl();
+  if (sc) S.scrollMemory[S.currentIdx] = S.layout === 'vertical' ? sc.scrollLeft : sc.scrollTop;
   loadChapter(S.currentIdx);
 }
 
@@ -800,12 +811,63 @@ function bindControls() {
   });
 }
 
+/* ── Page Turn ──────────────────────────────────────────────── */
+
+function pageTurn(dir) {
+  // dir: 1 = forward in book, -1 = backward
+  if (!S.spine.length) return;
+  var sc = getScrollEl();
+  if (!sc) return;
+
+  if (S.layout === 'vertical') {
+    // vertical-rl: content starts at right (scrollLeft=0), grows left (scrollLeft increases)
+    var pageW   = sc.clientWidth;
+    var atEnd   = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 10;
+    var atStart = sc.scrollLeft <= 10;
+    if (dir === 1) {
+      if (atEnd)   { if (S.currentIdx < S.spine.length - 1) loadChapter(S.currentIdx + 1); }
+      else         sc.scrollBy({ left: pageW,  behavior: 'smooth' });
+    } else {
+      if (atStart) { if (S.currentIdx > 0) loadChapter(S.currentIdx - 1); }
+      else         sc.scrollBy({ left: -pageW, behavior: 'smooth' });
+    }
+  } else {
+    var pageH   = sc.clientHeight;
+    var atEnd   = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 10;
+    var atStart = sc.scrollTop <= 10;
+    if (dir === 1) {
+      if (atEnd)   { if (S.currentIdx < S.spine.length - 1) loadChapter(S.currentIdx + 1); }
+      else         sc.scrollBy({ top: pageH,  behavior: 'smooth' });
+    } else {
+      if (atStart) { if (S.currentIdx > 0) loadChapter(S.currentIdx - 1); }
+      else         sc.scrollBy({ top: -pageH, behavior: 'smooth' });
+    }
+  }
+}
+
+function initPageTurn() {
+  EL.iframe.addEventListener('click', function(e) {
+    if (!S.spine.length) return;
+    if (e.defaultPrevented) return;
+    // Ignore clicks on links (check composed path through shadow DOM)
+    var path = e.composedPath ? e.composedPath() : [];
+    for (var i = 0; i < path.length; i++) {
+      if (path[i].tagName && path[i].tagName.toLowerCase() === 'a') return;
+    }
+    var rect = EL.iframe.getBoundingClientRect();
+    var relX = e.clientX - rect.left;
+    // Right half = forward, left half = backward
+    pageTurn(relX > rect.width * 0.5 ? 1 : -1);
+  });
+}
+
 /* ── Entry Point ────────────────────────────────────────────── */
 
 document.addEventListener('DOMContentLoaded', function() {
   loadPrefs();
   initDropZone();
   bindControls();
+  initPageTurn();
 });
 
 })();
