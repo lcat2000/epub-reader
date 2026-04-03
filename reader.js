@@ -489,9 +489,11 @@ function getScrollEl() {
 async function loadChapter(idx) {
   if (idx < 0 || idx >= S.spine.length) return;
 
-  // Save current scroll
+  // Save current scroll position
   var sc = getScrollEl();
   if (sc) S.scrollMemory[S.currentIdx] = S.layout === 'vertical' ? sc.scrollLeft : sc.scrollTop;
+  // Mark new chapter as unvisited so it starts at beginning
+  if (!S.scrollMemory.hasOwnProperty(idx)) S.scrollMemory[idx] = undefined;
 
   S.currentIdx = idx;
 
@@ -503,12 +505,18 @@ async function loadChapter(idx) {
   var chapterData = buildChapterShadow(rawHtml, S.spine[idx].href);
   renderToShadow(chapterData);
 
-  // Restore scroll (getScrollEl again since shadow DOM was rebuilt)
-  var saved = S.scrollMemory[idx] || 0;
+  // Restore scroll — for vertical-rl: scrollLeft=0 is the END, max is the BEGINNING
   var sc2 = getScrollEl();
   if (sc2) {
-    if (S.layout === 'vertical') sc2.scrollLeft = saved;
-    else                         sc2.scrollTop  = saved;
+    if (S.layout === 'vertical') {
+      var hasSaved = S.scrollMemory.hasOwnProperty(idx) && S.scrollMemory[idx] > 0;
+      // Use RAF to let layout settle before reading scrollWidth
+      requestAnimationFrame(function() {
+        sc2.scrollLeft = hasSaved ? S.scrollMemory[idx] : (sc2.scrollWidth - sc2.clientWidth);
+      });
+    } else {
+      sc2.scrollTop = S.scrollMemory[idx] || 0;
+    }
   }
 
   updateProgressUI();
@@ -526,6 +534,7 @@ function applyLayoutToBd(bd, layout) {
     bd.classList.add('v-layout');
     bd.style.writingMode        = 'vertical-rl';
     bd.style.webkitWritingMode  = 'vertical-rl';
+    bd.style.width              = '100%';   // constrain width so overflow-x clips
     bd.style.height             = '100%';
     bd.style.maxWidth           = 'none';
     bd.style.overflowX          = 'auto';
@@ -535,6 +544,7 @@ function applyLayoutToBd(bd, layout) {
     bd.classList.remove('v-layout');
     bd.style.writingMode        = '';
     bd.style.webkitWritingMode  = '';
+    bd.style.width              = '';
     bd.style.height             = '';
     bd.style.maxWidth           = '';
     bd.style.overflowX          = '';
@@ -820,16 +830,18 @@ function pageTurn(dir) {
   if (!sc) return;
 
   if (S.layout === 'vertical') {
-    // vertical-rl: content starts at right (scrollLeft=0), grows left (scrollLeft increases)
+    // vertical-rl: scrollLeft=0 = END (leftmost), scrollLeft=max = BEGINNING (rightmost)
+    // forward  = toward end   = decrease scrollLeft (scroll left,  left: -pageW)
+    // backward = toward start = increase scrollLeft (scroll right, left: +pageW)
     var pageW   = sc.clientWidth;
-    var atEnd   = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 10;
-    var atStart = sc.scrollLeft <= 10;
-    if (dir === 1) {
+    var atEnd   = sc.scrollLeft <= 10;
+    var atStart = sc.scrollLeft >= sc.scrollWidth - sc.clientWidth - 10;
+    if (dir === 1) {  // forward
       if (atEnd)   { if (S.currentIdx < S.spine.length - 1) loadChapter(S.currentIdx + 1); }
-      else         sc.scrollBy({ left: pageW,  behavior: 'smooth' });
-    } else {
-      if (atStart) { if (S.currentIdx > 0) loadChapter(S.currentIdx - 1); }
       else         sc.scrollBy({ left: -pageW, behavior: 'smooth' });
+    } else {          // backward
+      if (atStart) { if (S.currentIdx > 0) loadChapter(S.currentIdx - 1); }
+      else         sc.scrollBy({ left: pageW,  behavior: 'smooth' });
     }
   } else {
     var pageH   = sc.clientHeight;
