@@ -505,15 +505,11 @@ async function loadChapter(idx) {
   var chapterData = buildChapterShadow(rawHtml, S.spine[idx].href);
   renderToShadow(chapterData);
 
-  // Restore scroll — for vertical-rl: scrollLeft=0 is the END, max is the BEGINNING
+  // Restore scroll — vertical-rl: scrollLeft=0 = BEGINNING (right edge), negative = further left
   var sc2 = getScrollEl();
   if (sc2) {
     if (S.layout === 'vertical') {
-      var hasSaved = S.scrollMemory.hasOwnProperty(idx) && S.scrollMemory[idx] > 0;
-      // Use RAF to let layout settle before reading scrollWidth
-      requestAnimationFrame(function() {
-        sc2.scrollLeft = hasSaved ? S.scrollMemory[idx] : (sc2.scrollWidth - sc2.clientWidth);
-      });
+      sc2.scrollLeft = S.scrollMemory.hasOwnProperty(idx) ? S.scrollMemory[idx] : 0;
     } else {
       sc2.scrollTop = S.scrollMemory[idx] || 0;
     }
@@ -830,16 +826,17 @@ function pageTurn(dir) {
   if (!sc) return;
 
   if (S.layout === 'vertical') {
-    // vertical-rl: scrollLeft=0 = END (leftmost), scrollLeft=max = BEGINNING (rightmost)
-    // forward  = toward end   = decrease scrollLeft (scroll left,  left: -pageW)
-    // backward = toward start = increase scrollLeft (scroll right, left: +pageW)
+    // Chrome vertical-rl: scrollLeft=0 = BEGINNING (rightmost), scrollLeft<0 = further left = END
+    // forward  = toward end   = decrease scrollLeft (more negative), scrollBy left: -pageW
+    // backward = toward start = increase scrollLeft (toward 0),      scrollBy left: +pageW
     var pageW   = sc.clientWidth;
-    var atEnd   = sc.scrollLeft <= 10;
-    var atStart = sc.scrollLeft >= sc.scrollWidth - sc.clientWidth - 10;
-    if (dir === 1) {  // forward
+    var minLeft = -(sc.scrollWidth - sc.clientWidth);  // most negative = end
+    var atEnd   = sc.scrollLeft <= minLeft + 10;
+    var atStart = sc.scrollLeft >= -10;
+    if (dir === 1) {  // forward (right half click)
       if (atEnd)   { if (S.currentIdx < S.spine.length - 1) loadChapter(S.currentIdx + 1); }
       else         sc.scrollBy({ left: -pageW, behavior: 'smooth' });
-    } else {          // backward
+    } else {          // backward (left half click)
       if (atStart) { if (S.currentIdx > 0) loadChapter(S.currentIdx - 1); }
       else         sc.scrollBy({ left: pageW,  behavior: 'smooth' });
     }
