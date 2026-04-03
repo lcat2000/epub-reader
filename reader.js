@@ -907,6 +907,7 @@ function initPageTurn() {
     var ratio = relX / rect.width;
     // Middle 20% of screen → show chapter jump menu
     if (ratio >= 0.4 && ratio <= 0.6) {
+      e.stopPropagation();
       showJumpMenu(e.clientX, e.clientY);
       return;
     }
