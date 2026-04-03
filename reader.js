@@ -854,7 +854,46 @@ function pageTurn(dir) {
   }
 }
 
+function showJumpMenu(x, y) {
+  var menu = document.getElementById('jump-menu');
+  var prev = document.getElementById('jump-prev');
+  var next = document.getElementById('jump-next');
+  prev.disabled = S.currentIdx <= 0;
+  next.disabled = S.currentIdx >= S.spine.length - 1;
+  // Position menu centered on click point, keep within viewport
+  menu.removeAttribute('hidden');
+  var mw = menu.offsetWidth || 150;
+  var mh = menu.offsetHeight || 100;
+  var left = Math.min(Math.max(x - mw / 2, 8), window.innerWidth  - mw - 8);
+  var top  = Math.min(Math.max(y - mh / 2, 8), window.innerHeight - mh - 8);
+  menu.style.left = left + 'px';
+  menu.style.top  = top  + 'px';
+}
+
+function hideJumpMenu() {
+  document.getElementById('jump-menu').setAttribute('hidden', '');
+}
+
 function initPageTurn() {
+  var menu = document.getElementById('jump-menu');
+
+  // Jump menu buttons
+  document.getElementById('jump-prev').addEventListener('click', function() {
+    hideJumpMenu();
+    if (S.currentIdx > 0) loadChapter(S.currentIdx - 1);
+  });
+  document.getElementById('jump-next').addEventListener('click', function() {
+    hideJumpMenu();
+    if (S.currentIdx < S.spine.length - 1) loadChapter(S.currentIdx + 1);
+  });
+
+  // Close menu on outside click
+  document.addEventListener('click', function(e) {
+    if (!menu.hasAttribute('hidden') && !menu.contains(e.target)) {
+      hideJumpMenu();
+    }
+  });
+
   EL.iframe.addEventListener('click', function(e) {
     if (!S.spine.length) return;
     if (e.defaultPrevented) return;
@@ -865,6 +904,14 @@ function initPageTurn() {
     }
     var rect = EL.iframe.getBoundingClientRect();
     var relX = e.clientX - rect.left;
+    var ratio = relX / rect.width;
+    // Middle 20% of screen → show chapter jump menu
+    if (ratio >= 0.4 && ratio <= 0.6) {
+      showJumpMenu(e.clientX, e.clientY);
+      return;
+    }
+    // Close menu if open
+    hideJumpMenu();
     // Vertical RTL: right = backward (prev page), left = forward (next page)
     // Horizontal:   right = forward  (next page), left = backward (prev page)
     var isRight = relX > rect.width * 0.5;
