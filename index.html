@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com;
-               script-src 'self' https://cdnjs.cloudflare.com https://accounts.google.com;
+               script-src 'self' https://cdnjs.cloudflare.com;
                style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
                font-src https://fonts.gstatic.com;
                img-src 'self' data: blob: https://clustrmaps.com https://*.clustrmaps.com;
-               connect-src https://www.googleapis.com;
+               connect-src 'none';
                object-src 'none';
                base-uri 'self';
                form-action 'none'">
@@ -122,36 +122,6 @@
 <!-- ══ Error Toast ════════════════════════════════════════════════════════ -->
 <div id="error-toast" hidden role="alert" aria-live="assertive"></div>
 
-<!-- ══ Google Drive — Client ID 設定 ═════════════════════════════════════ -->
-<div id="gdrive-setup" hidden role="dialog" aria-modal="true" aria-labelledby="gdrive-setup-title">
-  <div id="gdrive-setup-inner">
-    <h3 id="gdrive-setup-title">Google Drive 設定</h3>
-    <p class="gdrive-desc">
-      請至 <b>Google Cloud Console</b> 建立 OAuth 2.0 用戶端 ID（類型：網頁應用程式），<br>
-      在「已授權的 JavaScript 來源」填入本頁網址，再將 Client ID 貼入下方。<br>
-      設定儲存於本裝置，之後不需再填。
-    </p>
-    <label class="gdrive-label">Client ID
-      <input id="gdrive-cid-in" type="text" placeholder="…apps.googleusercontent.com" autocomplete="off" spellcheck="false">
-    </label>
-    <div class="gdrive-modal-btns">
-      <button id="gdrive-setup-save" class="gdrive-btn-primary">確認並登入</button>
-      <button id="gdrive-setup-cancel" class="gdrive-btn-cancel">取消</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ Google Drive — 檔案瀏覽器 ══════════════════════════════════════════ -->
-<div id="gdrive-browser" hidden role="dialog" aria-modal="true" aria-labelledby="gdrive-browser-title">
-  <div id="gdrive-browser-inner">
-    <div id="gdrive-browser-header">
-      <h3 id="gdrive-browser-title">選擇 ePUB 檔案</h3>
-      <button id="gdrive-browser-close" class="icon-btn" aria-label="關閉">✕</button>
-    </div>
-    <input id="gdrive-search-in" type="search" placeholder="搜尋…" autocomplete="off">
-    <div id="gdrive-file-list" role="list"></div>
-  </div>
-</div>
 
 <!-- ══ Chapter Jump Menu ══════════════════════════════════════════════════ -->
 <div id="jump-menu" hidden role="menu" aria-label="章節跳轉">
