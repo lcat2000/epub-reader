@@ -367,8 +367,23 @@ body.theme-night #btn-gdrive { background: #2a2a2e; color: #ccc; border-color: #
 }
 
 @media (max-width: 480px) {
-  :root { --topbar-h: 48px; --sidebar-w: 90vw; }
-  .ctrl-btn { padding: 4px 5px; font-size: 0.72rem; }
-  .theme-btn { padding: 4px 6px; font-size: 0.72rem; }
+  /* 兩列工具列：第一列 TOC+章節導覽，第二列其他控制鈕 */
+  :root { --topbar-h: 78px; --sidebar-w: 90vw; }
+  #top-bar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 2px 0.5rem;
+    align-content: center;
+    row-gap: 0;
+  }
+  #chapter-nav { flex: 1; justify-content: flex-end; }
+  #toolbar-controls {
+    width: 100%; justify-content: center;
+    padding: 2px 0; gap: 0.15rem;
+    border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .ctrl-btn { padding: 3px 5px; font-size: 0.72rem; }
+  .theme-btn { padding: 3px 6px; font-size: 0.72rem; }
   #btn-layout-toggle { display: none; }
+  #btn-gdrive-new { display: none; }
 }
