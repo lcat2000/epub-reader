@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com;
-               script-src 'self' https://cdnjs.cloudflare.com;
+               script-src 'self' https://cdnjs.cloudflare.com https://accounts.google.com;
                style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
                font-src https://fonts.gstatic.com;
                img-src 'self' data: blob: https://clustrmaps.com https://*.clustrmaps.com;
-               connect-src 'none';
+               connect-src https://www.googleapis.com;
                object-src 'none';
                base-uri 'self';
                form-action 'none'">
@@ -37,7 +37,20 @@
     </svg>
     <p class="drop-title">ePUB 閱讀器</p>
     <p class="drop-sub">拖放 .epub 檔案至此，或</p>
-    <button id="btn-open" type="button">選擇檔案</button>
+    <div class="open-btns">
+      <button id="btn-open" type="button">選擇檔案</button>
+      <button id="btn-gdrive" type="button">
+        <svg width="16" height="16" viewBox="0 0 87.3 78" aria-hidden="true">
+          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5z" fill="#00ac47"/>
+          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.5l5.85 11.5z" fill="#ea4335"/>
+          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+        </svg>
+        Google Drive
+      </button>
+    </div>
     <p class="drop-hint">支援 ePUB 2 / ePUB 3 · 中文直排/橫排</p>
     <input type="file" id="file-input" accept=".epub" hidden>
     <a href="https://clustrmaps.com/site/1c9mf" title="ClustrMaps"><img src="//www.clustrmaps.com/map_v2.png?d=gvdG3wqO_34HaoI9NHTrI3ttd6h1svlPiiN28h_Z8O8&cl=ffffff"></a>
@@ -83,6 +96,7 @@
       開啟
     </button>
     <input type="file" id="file-input-new" accept=".epub" hidden>
+    <button id="btn-gdrive-new" class="ctrl-btn open-btn" aria-label="從 Google Drive 開啟" title="從 Google Drive 開啟">Drive</button>
   </div>
 </header>
 
@@ -107,6 +121,37 @@
 
 <!-- ══ Error Toast ════════════════════════════════════════════════════════ -->
 <div id="error-toast" hidden role="alert" aria-live="assertive"></div>
+
+<!-- ══ Google Drive — Client ID 設定 ═════════════════════════════════════ -->
+<div id="gdrive-setup" hidden role="dialog" aria-modal="true" aria-labelledby="gdrive-setup-title">
+  <div id="gdrive-setup-inner">
+    <h3 id="gdrive-setup-title">Google Drive 設定</h3>
+    <p class="gdrive-desc">
+      請至 <b>Google Cloud Console</b> 建立 OAuth 2.0 用戶端 ID（類型：網頁應用程式），<br>
+      在「已授權的 JavaScript 來源」填入本頁網址，再將 Client ID 貼入下方。<br>
+      設定儲存於本裝置，之後不需再填。
+    </p>
+    <label class="gdrive-label">Client ID
+      <input id="gdrive-cid-in" type="text" placeholder="…apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="gdrive-modal-btns">
+      <button id="gdrive-setup-save" class="gdrive-btn-primary">確認並登入</button>
+      <button id="gdrive-setup-cancel" class="gdrive-btn-cancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Google Drive — 檔案瀏覽器 ══════════════════════════════════════════ -->
+<div id="gdrive-browser" hidden role="dialog" aria-modal="true" aria-labelledby="gdrive-browser-title">
+  <div id="gdrive-browser-inner">
+    <div id="gdrive-browser-header">
+      <h3 id="gdrive-browser-title">選擇 ePUB 檔案</h3>
+      <button id="gdrive-browser-close" class="icon-btn" aria-label="關閉">✕</button>
+    </div>
+    <input id="gdrive-search-in" type="search" placeholder="搜尋…" autocomplete="off">
+    <div id="gdrive-file-list" role="list"></div>
+  </div>
+</div>
 
 <!-- ══ Chapter Jump Menu ══════════════════════════════════════════════════ -->
 <div id="jump-menu" hidden role="menu" aria-label="章節跳轉">

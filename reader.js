@@ -98,6 +98,10 @@ var EL = {
   loading:      $('loading-overlay'),
   loadingMsg:   $('loading-msg'),
   errorToast:   $('error-toast'),
+  btnGdrive:      $('btn-gdrive'),
+  btnGdriveNew:   $('btn-gdrive-new'),
+  gdriveSetup:    $('gdrive-setup'),
+  gdriveBrowser:  $('gdrive-browser'),
 };
 
 /* ── Utilities ───────────────────────────────────────────────── */
@@ -827,6 +831,186 @@ async function loadEpub(file) {
   }
 }
 
+/* ── Google Drive ────────────────────────────────────────────── */
+
+var GDRIVE = {
+  clientId: '',
+  token:    null,
+  tokenExp: 0,
+  CID_KEY:  'epub-gdrive-cid',
+};
+
+function gdriveInit() {
+  try { GDRIVE.clientId = localStorage.getItem(GDRIVE.CID_KEY) || ''; } catch(e) {}
+}
+
+/* Setup modal */
+function gdriveShowSetup() {
+  $('gdrive-cid-in').value = GDRIVE.clientId;
+  EL.gdriveSetup.removeAttribute('hidden');
+  $('gdrive-cid-in').focus();
+}
+function gdriveHideSetup() { EL.gdriveSetup.setAttribute('hidden', ''); }
+
+/* File browser modal */
+function gdriveShowBrowser(files) {
+  var list = $('gdrive-file-list');
+  list.innerHTML = '';
+  $('gdrive-search-in').value = '';
+
+  if (!files.length) {
+    list.innerHTML = '<p class="gdrive-empty">找不到 .epub 檔案</p>';
+  } else {
+    files.forEach(function(f) {
+      var btn = document.createElement('button');
+      btn.className = 'gdrive-file-item';
+      btn.type = 'button';
+      btn.setAttribute('role', 'listitem');
+      var date = f.modifiedTime ? f.modifiedTime.substring(0, 10) : '';
+      btn.innerHTML = '<span class="gdrive-fname">' + gdriveEsc(f.name) + '</span>' +
+                      '<span class="gdrive-fdate">' + date + '</span>';
+      btn.addEventListener('click', function() {
+        gdriveHideBrowser();
+        gdriveDownloadFile(f.id, f.name);
+      });
+      list.appendChild(btn);
+    });
+  }
+  EL.gdriveBrowser.removeAttribute('hidden');
+}
+function gdriveHideBrowser() { EL.gdriveBrowser.setAttribute('hidden', ''); }
+
+function gdriveFilterList(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.gdrive-file-item').forEach(function(btn) {
+    var name = btn.querySelector('.gdrive-fname').textContent.toLowerCase();
+    btn.style.display = name.indexOf(q) >= 0 ? '' : 'none';
+  });
+}
+
+/* Auth */
+function gdriveLoadGis() {
+  return new Promise(function(resolve, reject) {
+    if (window.google && window.google.accounts) { resolve(); return; }
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    s.onerror = function() { reject(new Error('無法載入 Google 登入程式庫')); };
+    document.head.appendChild(s);
+  });
+}
+
+function gdriveGetToken() {
+  return gdriveLoadGis().then(function() {
+    return new Promise(function(resolve, reject) {
+      var client = google.accounts.oauth2.initTokenClient({
+        client_id: GDRIVE.clientId,
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        callback: function(resp) {
+          if (resp.error) { reject(new Error(resp.error)); return; }
+          GDRIVE.token    = resp.access_token;
+          GDRIVE.tokenExp = Date.now() + ((resp.expires_in || 3600) - 60) * 1000;
+          resolve(resp.access_token);
+        },
+      });
+      client.requestAccessToken({ prompt: 'select_account' });
+    });
+  });
+}
+
+/* File list + download */
+function gdriveFetchFiles(token) {
+  var url = 'https://www.googleapis.com/drive/v3/files' +
+    '?q=' + encodeURIComponent("name contains '.epub' and trashed=false") +
+    '&fields=files(id,name,modifiedTime)' +
+    '&orderBy=modifiedTime+desc' +
+    '&pageSize=200';
+  return fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(function(r) {
+      if (!r.ok) throw new Error('無法取得檔案清單（' + r.status + '）');
+      return r.json();
+    })
+    .then(function(data) { return data.files || []; });
+}
+
+function gdriveDownloadFile(fileId, fileName) {
+  showLoading('下載「' + fileName + '」…');
+  fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) + '?alt=media',
+    { headers: { 'Authorization': 'Bearer ' + GDRIVE.token } })
+    .then(function(r) {
+      if (!r.ok) throw new Error('下載失敗（HTTP ' + r.status + '）');
+      return r.blob();
+    })
+    .then(function(blob) {
+      return new File([blob], fileName, { type: 'application/epub+zip' });
+    })
+    .then(function(file) {
+      hideLoading();
+      return loadEpub(file);
+    })
+    .catch(function(err) {
+      hideLoading();
+      showError('Google Drive：' + (err.message || err));
+    });
+}
+
+function gdriveEsc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* Entry */
+function openFromGdrive() {
+  if (!GDRIVE.clientId) { gdriveShowSetup(); return; }
+  showLoading('登入 Google…');
+  gdriveGetToken()
+    .then(function(token) {
+      showLoading('載入檔案清單…');
+      return gdriveFetchFiles(token);
+    })
+    .then(function(files) {
+      hideLoading();
+      gdriveShowBrowser(files);
+    })
+    .catch(function(err) {
+      hideLoading();
+      showError('Google Drive：' + (err.message || err));
+    });
+}
+
+function initGdrive() {
+  gdriveInit();
+
+  EL.btnGdrive.addEventListener('click', openFromGdrive);
+  EL.btnGdriveNew.addEventListener('click', openFromGdrive);
+
+  /* Setup modal */
+  $('gdrive-setup-save').addEventListener('click', function() {
+    var cid = $('gdrive-cid-in').value.trim();
+    if (!cid) { showError('請填入 Client ID'); return; }
+    GDRIVE.clientId = cid;
+    try { localStorage.setItem(GDRIVE.CID_KEY, cid); } catch(e) {}
+    gdriveHideSetup();
+    openFromGdrive();
+  });
+  $('gdrive-setup-cancel').addEventListener('click', gdriveHideSetup);
+  EL.gdriveSetup.addEventListener('click', function(e) {
+    if (e.target === EL.gdriveSetup) gdriveHideSetup();
+  });
+  $('gdrive-cid-in').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter')  $('gdrive-setup-save').click();
+    if (e.key === 'Escape') gdriveHideSetup();
+  });
+
+  /* Browser modal */
+  $('gdrive-browser-close').addEventListener('click', gdriveHideBrowser);
+  EL.gdriveBrowser.addEventListener('click', function(e) {
+    if (e.target === EL.gdriveBrowser) gdriveHideBrowser();
+  });
+  $('gdrive-search-in').addEventListener('input', function() {
+    gdriveFilterList(this.value);
+  });
+}
+
 /* ── Drop Zone & File Input ─────────────────────────────────── */
 
 function initDropZone() {
@@ -1009,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initDropZone();
   bindControls();
   initPageTurn();
+  initGdrive();
 });
 
 })();
