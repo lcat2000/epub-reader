@@ -465,12 +465,17 @@ function renderToShadow(chapterData) {
     .replace(/expression\s*\(/gi, '')
     // Strip @import (already inlined; blocks loading external resources)
     .replace(/@import\b[^;]*;/gi, '')
-    // Strip position:fixed (would overlay reader UI outside shadow host bounds)
+    // Strip position:fixed/sticky (would overlay reader UI)
     .replace(/position\s*:\s*fixed\b/gi, 'position:absolute')
+    .replace(/position\s*:\s*sticky\b/gi, 'position:relative')
     // Strip very high z-index that could obscure reader chrome
     .replace(/z-index\s*:\s*([0-9]+)/gi, function(_, n) {
       return 'z-index:' + Math.min(parseInt(n, 10), 100);
-    });
+    })
+    // Strip pointer-events:none (blocks user interaction / click hijacking)
+    .replace(/pointer-events\s*:\s*none\b/gi, 'pointer-events:auto')
+    // Strip external url() references (only data: and relative allowed)
+    .replace(/url\(\s*(['"]?)(https?:|\/\/)[^)]*\1\s*\)/gi, 'none');
   chapStyle.textContent = safeCss;
 
   var bd = document.createElement('div');
@@ -478,11 +483,19 @@ function renderToShadow(chapterData) {
   applyLayoutToBd(bd, S.layout);
   var safeHtml = (typeof DOMPurify !== 'undefined')
     ? DOMPurify.sanitize(chapterData.bodyHtml, {
-        FORBID_TAGS: ['script', 'object', 'embed', 'applet', 'iframe', 'frame'],
+        FORBID_TAGS: ['script', 'object', 'embed', 'applet', 'iframe', 'frame',
+                      'base', 'meta', 'link', 'form', 'input', 'button',
+                      'select', 'textarea', 'noscript'],
         FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus',
                       'onblur', 'onchange', 'onsubmit', 'onkeydown', 'onkeyup',
-                      'onkeypress', 'onmousedown', 'onmouseup', 'oncontextmenu'],
-        ALLOW_DATA_ATTR: false
+                      'onkeypress', 'onmousedown', 'onmouseup', 'oncontextmenu',
+                      'ondblclick', 'onmousemove', 'onmouseenter', 'onmouseleave',
+                      'ontouchstart', 'ontouchend', 'ontouchmove',
+                      'onwheel', 'onscroll', 'onresize', 'onselect',
+                      'onpointerdown', 'onpointerup', 'onpointermove',
+                      'srcdoc', 'action', 'formaction'],
+        ALLOW_DATA_ATTR: false,
+        FORCE_BODY: true,
       })
     : chapterData.bodyHtml;
   bd.innerHTML = safeHtml;
@@ -753,18 +766,26 @@ function showError(msg) {
 var LIMITS = {
   fileSizeBytes:       100 * 1024 * 1024,  // 100 MB compressed
   decompTotalBytes:    300 * 1024 * 1024,  // 300 MB decompressed
-  maxChapters:         1000,
-  maxImagesPerChapter: 200,
+  maxSingleFileBytes:   20 * 1024 * 1024,  //  20 MB per single entry
+  maxTotalFiles:        2000,              // total zip entries
+  maxChapters:          1000,
+  maxImagesPerChapter:  200,
 };
 
 async function checkZipSafety(zip) {
-  var totalDecomp = 0;
   var entries = Object.values(zip.files);
+  if (entries.length > LIMITS.maxTotalFiles) {
+    throw new Error('ePUB 包含超過 ' + LIMITS.maxTotalFiles + ' 個檔案，拒絕開啟。');
+  }
+  var totalDecomp = 0;
   for (var i = 0; i < entries.length; i++) {
     var entry = entries[i];
     if (entry.dir) continue;
     // JSZip exposes _data.uncompressedSize without decompressing
     var uncompSize = (entry._data && entry._data.uncompressedSize) || 0;
+    if (uncompSize > LIMITS.maxSingleFileBytes) {
+      throw new Error('ePUB 內單一檔案超過 20 MB（' + entry.name + '），拒絕開啟。');
+    }
     totalDecomp += uncompSize;
     if (totalDecomp > LIMITS.decompTotalBytes) {
       throw new Error('ePUB 解壓後超過 300 MB，可能是 zip bomb，已中止。');
