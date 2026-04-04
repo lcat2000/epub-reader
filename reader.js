@@ -98,7 +98,6 @@ var EL = {
   loading:      $('loading-overlay'),
   loadingMsg:   $('loading-msg'),
   errorToast:   $('error-toast'),
-  btnGdrive:      $('btn-gdrive'),
   btnGdriveNew:   $('btn-gdrive-new'),
 };
 
@@ -832,13 +831,8 @@ async function loadEpub(file) {
 /* ── Google Drive ────────────────────────────────────────────── */
 
 function initGdrive() {
-  function openDrive() {
+  EL.btnGdriveNew.addEventListener('click', function() {
     window.open('https://drive.google.com', '_blank');
-  }
-  EL.btnGdrive.addEventListener('click', openDrive);
-  EL.btnGdriveNew.addEventListener('click', openDrive);
-  $('btn-haodoo').addEventListener('click', function() {
-    window.open('https://www.haodoo.net/', '_blank');
   });
 }
 

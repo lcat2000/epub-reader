@@ -338,6 +338,7 @@ body.sidebar-pinned #top-bar     { padding-left: calc(var(--sidebar-w) + 0.75rem
   background: #fff; color: #444;
   border: 1px solid #ccc; border-radius: 6px;
   font-size: 1rem; font-family: var(--font-sans);
+  text-decoration: none;
   transition: box-shadow 0.15s;
 }
 #btn-gdrive:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.22); }
@@ -348,6 +349,7 @@ body.theme-night #btn-gdrive { background: #2a2a2e; color: #ccc; border-color: #
   background: #fff; color: #c0392b;
   border: 1px solid #c0392b; border-radius: 6px;
   font-size: 1rem; font-family: var(--font-sans);
+  text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 #btn-haodoo:hover { background: #c0392b; color: #fff; }
