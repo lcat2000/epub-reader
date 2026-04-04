@@ -837,6 +837,9 @@ function initGdrive() {
   }
   EL.btnGdrive.addEventListener('click', openDrive);
   EL.btnGdriveNew.addEventListener('click', openDrive);
+  $('btn-haodoo').addEventListener('click', function() {
+    window.open('https://www.haodoo.net/', '_blank');
+  });
 }
 
 /* ── Drop Zone & File Input ─────────────────────────────────── */

@@ -343,6 +343,17 @@ body.sidebar-pinned #top-bar     { padding-left: calc(var(--sidebar-w) + 0.75rem
 #btn-gdrive:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.22); }
 body.theme-night #btn-gdrive { background: #2a2a2e; color: #ccc; border-color: #444; }
 
+#btn-haodoo {
+  padding: 0.55em 1.3em;
+  background: #fff; color: #c0392b;
+  border: 1px solid #c0392b; border-radius: 6px;
+  font-size: 1rem; font-family: var(--font-sans);
+  transition: background 0.15s, color 0.15s;
+}
+#btn-haodoo:hover { background: #c0392b; color: #fff; }
+body.theme-night #btn-haodoo { background: #2a2a2e; color: #e74c3c; border-color: #e74c3c; }
+body.theme-night #btn-haodoo:hover { background: #e74c3c; color: #fff; }
+
 #btn-gdrive-new {
   background: rgba(255,255,255,0.12); color: #fff;
   border: 1px solid rgba(255,255,255,0.4); border-radius: 4px;
